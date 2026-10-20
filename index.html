@@ -1,4 +1,4 @@
-
+```html
 <!doctype html>
 <html lang="en">
 <head>
@@ -6,13 +6,16 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Study Hub | NFC Attendance</title>
   <meta name="theme-color" content="#123c32">
+
   <style>
     :root {
       font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       color: #17221e;
       background: #f4f7f5;
     }
+
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       min-height: 100vh;
@@ -20,6 +23,7 @@
       place-items: center;
       padding: 22px;
     }
+
     .card {
       width: min(100%, 460px);
       background: #fff;
@@ -28,6 +32,7 @@
       padding: 28px;
       box-shadow: 0 18px 55px #173d2c12;
     }
+
     .brand {
       font-size: 12px;
       font-weight: 800;
@@ -35,9 +40,24 @@
       color: #27745c;
       text-transform: uppercase;
     }
-    h1 { font-size: 29px; line-height: 1.15; margin: 12px 0 8px; }
-    p { color: #62716a; line-height: 1.55; }
-    label { display: block; font-weight: 700; margin: 18px 0 8px; }
+
+    h1 {
+      font-size: 29px;
+      line-height: 1.15;
+      margin: 12px 0 8px;
+    }
+
+    p {
+      color: #62716a;
+      line-height: 1.55;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin: 18px 0 8px;
+    }
+
     select {
       width: 100%;
       padding: 14px;
@@ -47,6 +67,19 @@
       font: inherit;
       color: #17221e;
     }
+
+    select:disabled {
+      background: #f2f5f3;
+      color: #7a8981;
+    }
+
+    .rate {
+      margin: 12px 0 0;
+      font-size: 13px;
+      color: #27745c;
+      font-weight: 700;
+    }
+
     .status {
       margin: 20px 0;
       padding: 16px;
@@ -54,8 +87,19 @@
       background: #f0f6f2;
       border: 1px solid #dce9df;
     }
-    .status strong { display: block; font-size: 18px; margin-bottom: 6px; }
-    .status span { font-size: 14px; color: #607169; line-height: 1.5; }
+
+    .status strong {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+
+    .status span {
+      font-size: 14px;
+      color: #607169;
+      line-height: 1.5;
+    }
+
     button {
       width: 100%;
       border: 0;
@@ -67,17 +111,40 @@
       font-size: 16px;
       cursor: pointer;
     }
-    button:disabled { opacity: .6; cursor: wait; }
-    .small { font-size: 12px; color: #7a8981; margin-top: 18px; }
-    .error { background: #fff3f1; border-color: #f2d4ce; }
-    .success { background: #effaf2; border-color: #cbe8d2; }
+
+    button:disabled {
+      opacity: .6;
+      cursor: wait;
+    }
+
+    .small {
+      font-size: 12px;
+      color: #7a8981;
+      margin-top: 18px;
+    }
+
+    .error {
+      background: #fff3f1;
+      border-color: #f2d4ce;
+    }
+
+    .success {
+      background: #effaf2;
+      border-color: #cbe8d2;
+    }
   </style>
 </head>
+
 <body>
   <main class="card">
     <div class="brand">Study Hub</div>
+
     <h1>NFC Attendance</h1>
-    <p>Your card has opened the attendance page. Select the front desk personnel, then press the button once to record your visit.</p>
+
+    <p>
+      Select the front desk personnel, session category, and group size.
+      Then press the button to record attendance.
+    </p>
 
     <label for="staffName">Front Desk Personnel</label>
     <select id="staffName" required>
@@ -89,104 +156,265 @@
       <option value="Front Desk5">Front Desk5</option>
     </select>
 
+    <label for="category">Session Category</label>
+    <select id="category" required>
+      <option value="">Select session category</option>
+      <option value="Focus">Focus</option>
+      <option value="Focus+">Focus+</option>
+      <option value="Sync">Sync</option>
+      <option value="The Huddle">The Huddle</option>
+      <option value="The Lounge">The Lounge</option>
+    </select>
+
+    <p class="rate" id="rateInfo" aria-live="polite">
+      Select a category to see its hourly rate.
+    </p>
+
+    <label for="groupSize">Group Size</label>
+    <select id="groupSize" required disabled>
+      <option value="">Select a category first</option>
+    </select>
+
     <div id="status" class="status" role="status" aria-live="polite">
       <strong>Checking card…</strong>
       <span>Please wait.</span>
     </div>
 
     <button id="tapBtn" disabled>Record attendance</button>
-    <p class="small">If this is not your card, close this page. If you tap accidentally, please tell the staff.</p>
+
+    <p class="small">
+      If this is not your card, close this page. If you tap accidentally,
+      please tell the staff.
+    </p>
   </main>
 
-<script>
-const statusBox = document.getElementById('status');
-const button = document.getElementById('tapBtn');
-const staffSelect = document.getElementById('staffName');
-const token = new URLSearchParams(location.search).get('token');
+  <script>
+    const statusBox = document.getElementById('status');
+    const button = document.getElementById('tapBtn');
+    const staffSelect = document.getElementById('staffName');
+    const categorySelect = document.getElementById('category');
+    const groupSizeSelect = document.getElementById('groupSize');
+    const rateInfo = document.getElementById('rateInfo');
 
-function show(title, message, type = '') {
-  statusBox.className = 'status ' + type;
-  statusBox.replaceChildren();
+    const token = new URLSearchParams(location.search).get('token');
 
-  const strong = document.createElement('strong');
-  strong.textContent = title;
+    // Allowed group sizes and hourly rates for each category.
+    const sessionRules = {
+      'Focus': {
+        rate: 35,
+        groupSizes: [1]
+      },
+      'Focus+': {
+        rate: 45,
+        groupSizes: [1]
+      },
+      'Sync': {
+        rate: 35,
+        groupSizes: [2]
+      },
+      'The Huddle': {
+        rate: 30,
+        groupSizes: [6, 7, 8]
+      },
+      'The Lounge': {
+        rate: 40,
+        groupSizes: [4]
+      }
+    };
 
-  const span = document.createElement('span');
-  span.textContent = message;
+    let submitting = false;
 
-  statusBox.append(strong, span);
-}
+    function show(title, message, type = '') {
+      statusBox.className = 'status ' + type;
+      statusBox.replaceChildren();
 
-if (!token || !token.trim()) {
-  show(
-    'Card token missing',
-    'Please tap your registered NFC card or ask staff for help.',
-    'error'
-  );
-} else {
-  show('Card detected', 'Select personnel and press the button to record attendance.');
-  button.disabled = false;
-}
+      const strong = document.createElement('strong');
+      strong.textContent = title;
 
-button.addEventListener('click', async () => {
-  if (!token) return;
+      const span = document.createElement('span');
+      span.textContent = message;
 
-  const staffName = staffSelect.value;
-
-  if (!staffName) {
-    show('Select personnel', 'Please select the front desk personnel first.', 'error');
-    return;
-  }
-
-  button.disabled = true;
-  staffSelect.disabled = true;
-  button.textContent = 'Recording…';
-  show('Submitting attendance', 'Please keep this page open.');
-
-  try {
-    const res = await fetch('/api/attendance', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        token: token.trim(),
-        staffName: staffName
-      })
-    });
-
-    const data = await res.json();
-
-    if (!res.ok || data.success !== true) {
-      throw new Error(data.message || 'Unable to record attendance.');
+      statusBox.append(strong, span);
     }
 
-    if (data.action === 'TIME_IN') {
+    function updateGroupSizes() {
+      const category = categorySelect.value;
+      const rule = sessionRules[category];
+
+      // Reset the group-size selection whenever the category changes.
+      groupSizeSelect.replaceChildren();
+
+      if (!rule) {
+        groupSizeSelect.add(new Option('Select a category first', ''));
+        groupSizeSelect.disabled = true;
+        rateInfo.textContent = 'Select a category to see its hourly rate.';
+        return;
+      }
+
+      rateInfo.textContent = `Rate: ₱${rule.rate.toFixed(2)} per hour`;
+
+      groupSizeSelect.add(new Option('Select group size', ''));
+
+      rule.groupSizes.forEach(size => {
+        const label = size === 1 ? '1 person' : `${size} people`;
+        groupSizeSelect.add(new Option(label, String(size)));
+      });
+
+      groupSizeSelect.disabled = false;
+    }
+
+    categorySelect.addEventListener('change', updateGroupSizes);
+
+    if (!token || !token.trim()) {
       show(
-        'Time-in recorded',
-        `${data.studentName || 'Student'} · ${data.timeIn || ''}. Please ask staff to select the session category in the Sessions sheet before time-out.`,
-        'success'
-      );
-    } else if (data.action === 'TIME_OUT') {
-      show(
-        'Time-out recorded',
-        `${data.studentName || 'Student'} · ${data.category || 'Session'} · ${data.billableHours ?? ''} billable hour(s) · Charge: ₱${Number(data.totalCharge || 0).toFixed(2)}`,
-        'success'
+        'Card token missing',
+        'Please tap your registered NFC card or ask staff for help.',
+        'error'
       );
     } else {
-      show('Attendance recorded', data.message || 'Your attendance was recorded.', 'success');
+      show(
+        'Card detected',
+        'Select personnel, category, and group size before recording attendance.'
+      );
+      button.disabled = false;
     }
 
-    button.textContent = 'Attendance recorded';
-  } catch (err) {
-    show(
-      'Could not record attendance',
-      (err.message || 'An unexpected error occurred.') + ' Please ask staff for help.',
-      'error'
-    );
-    button.disabled = false;
-    staffSelect.disabled = false;
-    button.textContent = 'Try again';
-  }
-});
-</script>
+    button.addEventListener('click', async () => {
+      if (submitting) return;
+
+      if (!token || !token.trim()) {
+        show(
+          'Card token missing',
+          'Please tap your registered NFC card or ask staff for help.',
+          'error'
+        );
+        return;
+      }
+
+      const staffName = staffSelect.value;
+      const category = categorySelect.value;
+      const rule = sessionRules[category];
+      const groupSize = Number(groupSizeSelect.value);
+
+      if (!staffName) {
+        show(
+          'Select personnel',
+          'Please select the front desk personnel first.',
+          'error'
+        );
+        staffSelect.focus();
+        return;
+      }
+
+      if (!rule) {
+        show(
+          'Select session category',
+          'Please select a valid session category.',
+          'error'
+        );
+        categorySelect.focus();
+        return;
+      }
+
+      if (
+        !groupSizeSelect.value ||
+        !rule.groupSizes.includes(groupSize)
+      ) {
+        show(
+          'Invalid group size',
+          `For ${category}, allowed group size: ${rule.groupSizes.join(', ')}.`,
+          'error'
+        );
+        groupSizeSelect.focus();
+        return;
+      }
+
+      submitting = true;
+      button.disabled = true;
+      staffSelect.disabled = true;
+      categorySelect.disabled = true;
+      groupSizeSelect.disabled = true;
+      button.textContent = 'Recording…';
+
+      show('Submitting attendance', 'Please keep this page open.');
+
+      try {
+        const res = await fetch('/api/attendance', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            token: token.trim(),
+            staffName: staffName,
+            category: category,
+            groupSize: groupSize
+          })
+        });
+
+        let data;
+
+        try {
+          data = await res.json();
+        } catch {
+          throw new Error(
+            'The server returned an invalid response. Please ask staff for help.'
+          );
+        }
+
+        if (!res.ok || data.success !== true) {
+          throw new Error(
+            data.message || 'Unable to record attendance.'
+          );
+        }
+
+        if (data.action === 'TIME_IN') {
+          show(
+            'Time-in recorded',
+            `${data.studentName || 'Student'} · ` +
+            `${data.timeIn || ''}. Category: ${category}. ` +
+            `Group size: ${groupSize}. Rate: ₱${rule.rate.toFixed(2)}/hour.`,
+            'success'
+          );
+        } else if (data.action === 'TIME_OUT') {
+          show(
+            'Time-out recorded',
+            `${data.studentName || 'Student'} · ` +
+            `${data.category || category} · ` +
+            `${data.billableHours ?? ''} billable hour(s) · ` +
+            `Charge: ₱${Number(data.totalCharge || 0).toFixed(2)}`,
+            'success'
+          );
+        } else {
+          show(
+            'Attendance recorded',
+            data.message || 'Your attendance was recorded.',
+            'success'
+          );
+        }
+
+        button.textContent = 'Attendance recorded';
+
+      } catch (err) {
+        show(
+          'Could not record attendance',
+          (err.message || 'An unexpected error occurred.') +
+          ' Please ask staff for help.',
+          'error'
+        );
+
+        staffSelect.disabled = false;
+        categorySelect.disabled = false;
+        groupSizeSelect.disabled = !categorySelect.value;
+
+        button.disabled = false;
+        button.textContent = 'Try again';
+
+      } finally {
+        submitting = false;
+      }
+    });
+  </script>
 </body>
 </html>
+```
