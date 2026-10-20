@@ -1,0 +1,122 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Study Hub | Attendance</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f3f5f9;
+      color: #172033;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 430px;
+      background: white;
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: 0 10px 35px #18243a12;
+    }
+    h1 { margin: 0 0 8px; font-size: 27px; }
+    .sub { color: #657087; margin: 0 0 25px; line-height: 1.5; }
+    label { display: block; font-weight: 600; margin: 17px 0 8px; }
+    input, select, button {
+      width: 100%;
+      padding: 13px;
+      border-radius: 9px;
+      font-size: 15px;
+    }
+    input, select { border: 1px solid #ccd3df; background: white; }
+    button {
+      margin-top: 23px;
+      border: 0;
+      background: #173e75;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .6; cursor: wait; }
+    #message { margin-top: 18px; line-height: 1.5; overflow-wrap: anywhere; }
+    .hint { color: #657087; font-size: 13px; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Study Hub</h1>
+    <p class="sub">Student attendance and session tracking</p>
+
+    <form id="attendanceForm">
+      <label for="token">Student NFC Token</label>
+      <input id="token" name="token" required
+        placeholder="Tap your membership card"
+        autocomplete="off">
+
+      <label for="staffName">Front Desk Personnel</label>
+      <select id="staffName" name="staffName" required>
+        <option value="">Select personnel</option>
+        <option>Front Desk1</option>
+        <option>Front Desk2</option>
+        <option>Front Desk3</option>
+        <option>Front Desk4</option>
+        <option>Front Desk5</option>
+      </select>
+
+      <button id="submitBtn" type="submit">Record Attendance</button>
+      <div id="message" role="status" aria-live="polite"></div>
+    </form>
+
+    <p class="hint">
+      Present your registered NFC card and select the personnel handling your session.
+    </p>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    document.getElementById("token").value = params.get("token") || "";
+
+    const form = document.getElementById("attendanceForm");
+    const button = document.getElementById("submitBtn");
+    const message = document.getElementById("message");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      button.disabled = true;
+      message.textContent = "Processing attendance...";
+
+      try {
+        const response = await fetch("/api/attendance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: document.getElementById("token").value.trim(),
+            staffName: document.getElementById("staffName").value
+          })
+        });
+
+        const result = await response.json();
+        if (!response.ok || result.success === false) {
+          throw new Error(result.message || "Unable to record attendance.");
+        }
+
+        message.textContent = result.message || "Attendance recorded successfully.";
+        form.reset();
+        document.getElementById("token").value =
+          params.get("token") || "";
+      } catch (error) {
+        message.textContent = error.message ||
+          "Something went wrong. Please try again.";
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
