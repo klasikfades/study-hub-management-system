@@ -1,4 +1,4 @@
-
+```javascript
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -17,8 +17,10 @@ export default async function handler(req, res) {
     });
   }
 
-  if (!scriptUrl.startsWith("https://script.google.com/macros/s/") ||
-      !scriptUrl.endsWith("/exec")) {
+  if (
+    !scriptUrl.startsWith("https://script.google.com/macros/s/") ||
+    !scriptUrl.endsWith("/exec")
+  ) {
     return res.status(500).json({
       success: false,
       message: "APPS_SCRIPT_URL must be the deployed Google Apps Script URL ending in /exec."
@@ -28,7 +30,6 @@ export default async function handler(req, res) {
   try {
     let body = req.body || {};
 
-    // Handle requests whose body arrives as a JSON string.
     if (typeof body === "string") {
       try {
         body = JSON.parse(body);
@@ -40,8 +41,17 @@ export default async function handler(req, res) {
       }
     }
 
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid request body. Expected a JSON object."
+      });
+    }
+
     const token = body.token;
     const staffName = body.staffName;
+    const category = body.category;
+    const groupSize = body.groupSize;
 
     if (
       typeof token !== "string" || !token.trim() ||
@@ -53,15 +63,44 @@ export default async function handler(req, res) {
       });
     }
 
+    const payload = {
+      token: token.trim(),
+      staffName: staffName.trim()
+    };
+
+    // Forward the selected category if the frontend provided it.
+    if (typeof category === "string" && category.trim()) {
+      payload.category = category.trim();
+    }
+
+    // Preserve the group size, including numeric values sent as strings.
+    if (
+      groupSize !== undefined &&
+      groupSize !== null &&
+      String(groupSize).trim() !== ""
+    ) {
+      const parsedGroupSize = Number(groupSize);
+
+      if (
+        !Number.isInteger(parsedGroupSize) ||
+        parsedGroupSize < 1 ||
+        parsedGroupSize > 8
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Group size must be a whole number from 1 to 8."
+        });
+      }
+
+      payload.groupSize = parsedGroupSize;
+    }
+
     const response = await fetch(scriptUrl, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain;charset=utf-8"
       },
-      body: JSON.stringify({
-        token: token.trim(),
-        staffName: staffName.trim()
-      }),
+      body: JSON.stringify(payload),
       redirect: "follow"
     });
 
@@ -75,7 +114,6 @@ export default async function handler(req, res) {
       const contentType =
         response.headers.get("content-type") || "unknown";
 
-      // Return limited diagnostics without exposing the student's token.
       return res.status(502).json({
         success: false,
         message: "Google Apps Script returned a non-JSON response.",
@@ -97,6 +135,7 @@ export default async function handler(req, res) {
       });
     }
 
+    // Apps Script can return HTTP 200 even when its JSON says success:false.
     return res.status(200).json(result);
 
   } catch (error) {
@@ -108,3 +147,4 @@ export default async function handler(req, res) {
     });
   }
 }
+```
