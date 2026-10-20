@@ -1,122 +1,192 @@
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Study Hub | Attendance</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Study Hub | NFC Attendance</title>
+  <meta name="theme-color" content="#123c32">
   <style>
+    :root {
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: #17221e;
+      background: #f4f7f5;
+    }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f3f5f9;
-      color: #172033;
       min-height: 100vh;
       display: grid;
       place-items: center;
-      padding: 20px;
+      padding: 22px;
     }
     .card {
-      width: 100%;
-      max-width: 430px;
-      background: white;
-      border-radius: 18px;
+      width: min(100%, 460px);
+      background: #fff;
+      border: 1px solid #e0e8e3;
+      border-radius: 24px;
       padding: 28px;
-      box-shadow: 0 10px 35px #18243a12;
+      box-shadow: 0 18px 55px #173d2c12;
     }
-    h1 { margin: 0 0 8px; font-size: 27px; }
-    .sub { color: #657087; margin: 0 0 25px; line-height: 1.5; }
-    label { display: block; font-weight: 600; margin: 17px 0 8px; }
-    input, select, button {
+    .brand {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      color: #27745c;
+      text-transform: uppercase;
+    }
+    h1 { font-size: 29px; line-height: 1.15; margin: 12px 0 8px; }
+    p { color: #62716a; line-height: 1.55; }
+    label { display: block; font-weight: 700; margin: 18px 0 8px; }
+    select {
       width: 100%;
-      padding: 13px;
-      border-radius: 9px;
-      font-size: 15px;
+      padding: 14px;
+      border: 1px solid #dce5df;
+      border-radius: 12px;
+      background: #fff;
+      font: inherit;
+      color: #17221e;
     }
-    input, select { border: 1px solid #ccd3df; background: white; }
+    .status {
+      margin: 20px 0;
+      padding: 16px;
+      border-radius: 14px;
+      background: #f0f6f2;
+      border: 1px solid #dce9df;
+    }
+    .status strong { display: block; font-size: 18px; margin-bottom: 6px; }
+    .status span { font-size: 14px; color: #607169; line-height: 1.5; }
     button {
-      margin-top: 23px;
+      width: 100%;
       border: 0;
-      background: #173e75;
-      color: white;
-      font-weight: 700;
+      border-radius: 12px;
+      padding: 15px 18px;
+      background: #176448;
+      color: #fff;
+      font-weight: 750;
+      font-size: 16px;
       cursor: pointer;
     }
     button:disabled { opacity: .6; cursor: wait; }
-    #message { margin-top: 18px; line-height: 1.5; overflow-wrap: anywhere; }
-    .hint { color: #657087; font-size: 13px; margin-top: 16px; }
+    .small { font-size: 12px; color: #7a8981; margin-top: 18px; }
+    .error { background: #fff3f1; border-color: #f2d4ce; }
+    .success { background: #effaf2; border-color: #cbe8d2; }
   </style>
 </head>
 <body>
   <main class="card">
-    <h1>Study Hub</h1>
-    <p class="sub">Student attendance and session tracking</p>
+    <div class="brand">Study Hub</div>
+    <h1>NFC Attendance</h1>
+    <p>Your card has opened the attendance page. Select the front desk personnel, then press the button once to record your visit.</p>
 
-    <form id="attendanceForm">
-      <label for="token">Student NFC Token</label>
-      <input id="token" name="token" required
-        placeholder="Tap your membership card"
-        autocomplete="off">
+    <label for="staffName">Front Desk Personnel</label>
+    <select id="staffName" required>
+      <option value="">Select personnel</option>
+      <option value="Front Desk1">Front Desk1</option>
+      <option value="Front Desk2">Front Desk2</option>
+      <option value="Front Desk3">Front Desk3</option>
+      <option value="Front Desk4">Front Desk4</option>
+      <option value="Front Desk5">Front Desk5</option>
+    </select>
 
-      <label for="staffName">Front Desk Personnel</label>
-      <select id="staffName" name="staffName" required>
-        <option value="">Select personnel</option>
-        <option>Front Desk1</option>
-        <option>Front Desk2</option>
-        <option>Front Desk3</option>
-        <option>Front Desk4</option>
-        <option>Front Desk5</option>
-      </select>
+    <div id="status" class="status" role="status" aria-live="polite">
+      <strong>Checking card…</strong>
+      <span>Please wait.</span>
+    </div>
 
-      <button id="submitBtn" type="submit">Record Attendance</button>
-      <div id="message" role="status" aria-live="polite"></div>
-    </form>
-
-    <p class="hint">
-      Present your registered NFC card and select the personnel handling your session.
-    </p>
+    <button id="tapBtn" disabled>Record attendance</button>
+    <p class="small">If this is not your card, close this page. If you tap accidentally, please tell the staff.</p>
   </main>
 
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    document.getElementById("token").value = params.get("token") || "";
+<script>
+const statusBox = document.getElementById('status');
+const button = document.getElementById('tapBtn');
+const staffSelect = document.getElementById('staffName');
+const token = new URLSearchParams(location.search).get('token');
 
-    const form = document.getElementById("attendanceForm");
-    const button = document.getElementById("submitBtn");
-    const message = document.getElementById("message");
+function show(title, message, type = '') {
+  statusBox.className = 'status ' + type;
+  statusBox.replaceChildren();
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      button.disabled = true;
-      message.textContent = "Processing attendance...";
+  const strong = document.createElement('strong');
+  strong.textContent = title;
 
-      try {
-        const response = await fetch("/api/attendance", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token: document.getElementById("token").value.trim(),
-            staffName: document.getElementById("staffName").value
-          })
-        });
+  const span = document.createElement('span');
+  span.textContent = message;
 
-        const result = await response.json();
-        if (!response.ok || result.success === false) {
-          throw new Error(result.message || "Unable to record attendance.");
-        }
+  statusBox.append(strong, span);
+}
 
-        message.textContent = result.message || "Attendance recorded successfully.";
-        form.reset();
-        document.getElementById("token").value =
-          params.get("token") || "";
-      } catch (error) {
-        message.textContent = error.message ||
-          "Something went wrong. Please try again.";
-      } finally {
-        button.disabled = false;
-      }
+if (!token || !token.trim()) {
+  show(
+    'Card token missing',
+    'Please tap your registered NFC card or ask staff for help.',
+    'error'
+  );
+} else {
+  show('Card detected', 'Select personnel and press the button to record attendance.');
+  button.disabled = false;
+}
+
+button.addEventListener('click', async () => {
+  if (!token) return;
+
+  const staffName = staffSelect.value;
+
+  if (!staffName) {
+    show('Select personnel', 'Please select the front desk personnel first.', 'error');
+    return;
+  }
+
+  button.disabled = true;
+  staffSelect.disabled = true;
+  button.textContent = 'Recording…';
+  show('Submitting attendance', 'Please keep this page open.');
+
+  try {
+    const res = await fetch('/api/attendance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: token.trim(),
+        staffName: staffName
+      })
     });
-  </script>
+
+    const data = await res.json();
+
+    if (!res.ok || data.success !== true) {
+      throw new Error(data.message || 'Unable to record attendance.');
+    }
+
+    if (data.action === 'TIME_IN') {
+      show(
+        'Time-in recorded',
+        `${data.studentName || 'Student'} · ${data.timeIn || ''}. Please ask staff to select the session category in the Sessions sheet before time-out.`,
+        'success'
+      );
+    } else if (data.action === 'TIME_OUT') {
+      show(
+        'Time-out recorded',
+        `${data.studentName || 'Student'} · ${data.category || 'Session'} · ${data.billableHours ?? ''} billable hour(s) · Charge: ₱${Number(data.totalCharge || 0).toFixed(2)}`,
+        'success'
+      );
+    } else {
+      show('Attendance recorded', data.message || 'Your attendance was recorded.', 'success');
+    }
+
+    button.textContent = 'Attendance recorded';
+  } catch (err) {
+    show(
+      'Could not record attendance',
+      (err.message || 'An unexpected error occurred.') + ' Please ask staff for help.',
+      'error'
+    );
+    button.disabled = false;
+    staffSelect.disabled = false;
+    button.textContent = 'Try again';
+  }
+});
+</script>
 </body>
 </html>
