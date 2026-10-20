@@ -8,17 +8,38 @@ export default async function handler(req, res) {
     });
   }
 
-  const scriptUrl = process.env.APPS_SCRIPT_URL;
+  const scriptUrl = process.env.APPS_SCRIPT_URL?.trim();
 
   if (!scriptUrl) {
     return res.status(500).json({
       success: false,
-      message: "Backend URL is not configured in Vercel."
+      message: "Backend URL is not configured in Vercel. Check APPS_SCRIPT_URL."
+    });
+  }
+
+  if (!scriptUrl.startsWith("https://script.google.com/macros/s/") ||
+      !scriptUrl.endsWith("/exec")) {
+    return res.status(500).json({
+      success: false,
+      message: "APPS_SCRIPT_URL must be the deployed Google Apps Script URL ending in /exec."
     });
   }
 
   try {
-    const body = req.body || {};
+    let body = req.body || {};
+
+    // Handle requests whose body arrives as a JSON string.
+    if (typeof body === "string") {
+      try {
+        body = JSON.parse(body);
+      } catch {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid request body. Expected JSON."
+        });
+      }
+    }
+
     const token = body.token;
     const staffName = body.staffName;
 
@@ -47,20 +68,43 @@ export default async function handler(req, res) {
     const responseText = await response.text();
 
     let result;
+
     try {
       result = JSON.parse(responseText);
     } catch {
+      const contentType =
+        response.headers.get("content-type") || "unknown";
+
+      // Return limited diagnostics without exposing the student's token.
       return res.status(502).json({
         success: false,
-        message: "The Google Apps Script backend returned an unexpected response."
+        message: "Google Apps Script returned a non-JSON response.",
+        diagnostic: {
+          httpStatus: response.status,
+          contentType,
+          responsePreview: responseText.slice(0, 300)
+        }
+      });
+    }
+
+    if (!response.ok) {
+      return res.status(502).json({
+        success: false,
+        message: "Google Apps Script returned an HTTP error.",
+        diagnostic: {
+          httpStatus: response.status
+        }
       });
     }
 
     return res.status(200).json(result);
+
   } catch (error) {
+    console.error("Attendance backend connection error:", error);
+
     return res.status(502).json({
       success: false,
-      message: "Could not connect to the attendance backend. Please try again."
+      message: "Could not connect to Google Apps Script. Check the deployment URL and backend availability."
     });
   }
 }
